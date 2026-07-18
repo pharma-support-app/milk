@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>赤ちゃんミルク記録（デモ版）</title>
+    <style>
+        :root {
+            --primary-color: #6da5c0;
+            --bg-color: #f7f9fa;
+            --card-bg: #ffffff;
+            --text-color: #2c3e50;
+            --accent-color: #ff8b8b;
+            --border-color: #e2e8f0;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); color: var(--text-color); padding: 15px; }
+        .container { max-width: 500px; margin: 0 auto; }
+        h2 { text-align: center; margin-bottom: 15px; font-size: 1.2rem; }
+        .demo-badge { text-align: center; background: #fff3cd; color: #856404; border-radius: 8px; padding: 8px; margin-bottom: 12px; font-size: 0.8rem; }
+        .card { background: var(--card-bg); border-radius: 16px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .timer-box { text-align: center; background: #eef7f9; border-radius: 12px; padding: 12px; margin-bottom: 20px; border-left: 5px solid var(--primary-color); }
+        .timer-box span { font-weight: bold; color: var(--primary-color); font-size: 1.25rem; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 0.9rem; }
+        input[type="datetime-local"] { width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 1rem; }
+        select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 1rem; }
+        .btn { display: block; width: 100%; padding: 14px; background: var(--primary-color); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; text-align: center; margin-top: 15px; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-danger { background: var(--accent-color); }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .stat-card { background: #fff; padding: 12px; border-radius: 12px; text-align: center; border: 1px solid var(--border-color); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .stat-val { font-size: 1.2rem; font-weight: bold; color: var(--primary-color); margin-top: 5px; }
+        .filter-box { display: flex; gap: 8px; align-items: center; margin-bottom: 15px; }
+        .filter-box select { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.9rem; }
+        .filter-box .btn { width: auto; padding: 10px 15px; margin-top: 0; }
+        .history-list { max-height: 350px; overflow-y: auto; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid var(--border-color); }
+        .history-info { display: flex; flex-direction: column; }
+        .history-time { font-weight: bold; font-size: 1.1rem; }
+        .history-date { font-size: 0.75rem; color: #7f8c8d; }
+        .history-amount { font-weight: bold; color: var(--primary-color); font-size: 1.1rem; }
+        .history-actions button { background: none; border: none; margin-left: 10px; cursor: pointer; font-size: 1.1rem; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; padding: 15px; z-index: 1000; }
+        .modal-content { background: white; padding: 20px; border-radius: 16px; width: 100%; max-width: 400px; }
+        .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
+        .modal-buttons .btn { margin-top: 0; }
+        .tabs { display: flex; margin-bottom: 15px; background: #e2e8f0; padding: 4px; border-radius: 8px; }
+        .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; border-radius: 6px; font-weight: bold; font-size: 0.9rem; }
+        .tab.active { background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .page { display: none; }
+        .page.active { display: block; }
+        .loading { text-align: center; padding: 20px; color: #7f8c8d; }
+        .legend-item { display: flex; align-items: center; gap: 4px; }
+        .legend-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+        .chart-mode-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+        .mode-btn { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--border-color); background: #f0f4f8; font-size: 0.85rem; font-weight: bold; cursor: pointer; }
+        .mode-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+        .day-detail-list { max-height: 300px; overflow-y: auto; margin: 10px 0; }
+        .day-detail-total { text-align: center; font-size: 0.9rem; color: #7f8c8d; margin-bottom: 10px; }
+        .day-detail-empty { text-align: center; padding: 20px; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="demo-badge">📱 これはデモ版です。入力したデータはこの端末・このブラウザだけに保存され、他の人とは共有されません。</div>
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('record')">記録入力</div>
+        <div class="tab" onclick="switchTab('history')">履歴・分析</div>
+    </div>
+
+    <div id="page-record" class="page active">
+        <div class="card">
+            <div class="timer-box">
+                🍼 前回のミルクから <span id="elapsed-time">計算中...</span> 経過<br>
+                <span style="font-size:0.85rem; color:#7f8c8d;">前回の量: <span id="last-amount">-</span></span>
+            </div>
+            <h2>ミルク記録</h2>
+            <div class="form-group">
+                <label for="record-time">あげた日時（自動で現在時刻）</label>
+                <input type="datetime-local" id="record-time">
+            </div>
+            <div class="form-group">
+                <label for="record-amount">量 (ml)</label>
+                <select id="record-amount"></select>
+            </div>
+            <div class="form-group">
+                <label for="record-memo">メモ</label>
+                <input type="text" id="record-memo" placeholder="少し残した、など" style="width:100%; padding:12px; border-radius:8px; border:1px solid var(--border-color); font-size:1rem;">
+            </div>
+            <button class="btn" onclick="submitRecord()">この内容で登録</button>
+        </div>
+    </div>
+
+    <div id="page-history" class="page">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <label>期間内 1日平均量</label>
+                <div class="stat-val" id="stat-avg-amount">- ml</div>
+            </div>
+            <div class="stat-card">
+                <label>平均間隔</label>
+                <div class="stat-val" id="stat-avg-interval">-</div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>直近7日間のミルク量</h2>
+            <div class="chart-mode-toggle">
+                <button id="mode-btn-session" class="mode-btn active" onclick="setChartMode('session')">回数ごと</button>
+                <button id="mode-btn-time" class="mode-btn" onclick="setChartMode('timeofday')">時間帯ごと</button>
+            </div>
+            <div id="weekly-chart"></div>
+            <div id="weekly-chart-legend" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; font-size:0.8rem;"></div>
+            <div style="text-align:center; font-size:0.75rem; color:#7f8c8d; margin-top:8px;">棒をタップするとその日の詳細が見られます</div>
+        </div>
+        <div class="card">
+            <h2>履歴一覧</h2>
+            <div class="filter-box">
+                <select id="period-filter" onchange="renderHistory()">
+                    <option value="7" selected>直近1週間</option>
+                    <option value="3">直近3日間</option>
+                    <option value="14">直近2週間</option>
+                    <option value="30">直近1ヶ月</option>
+                </select>
+                <button class="btn" onclick="openAddModal()">＋過去分追加</button>
+            </div>
+            <div id="loading-history" class="loading" style="display:none;">読み込み中...</div>
+            <div class="history-list" id="history-container"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="edit-modal">
+    <div class="modal-content">
+        <h2 id="modal-title">記録の編集</h2>
+        <input type="hidden" id="edit-id">
+        <div class="form-group">
+            <label for="edit-time">日時</label>
+            <input type="datetime-local" id="edit-time">
+        </div>
+        <div class="form-group">
+            <label for="edit-amount">量 (ml)</label>
+            <select id="edit-amount"></select>
+        </div>
+        <div class="form-group">
+            <label for="edit-memo">メモ</label>
+            <input type="text" id="edit-memo" style="width:100%; padding:12px; border-radius:8px; border:1px solid var(--border-color); font-size:1rem;">
+        </div>
+        <button class="btn" onclick="saveEdit()">保存する</button>
+        <div class="modal-buttons">
+            <button class="btn btn-danger" id="delete-btn" onclick="deleteRecord()" style="flex:1;">削除</button>
+            <button class="btn" onclick="closeModal()" style="flex:1; background:#95a5a6;">閉じる</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="day-detail-modal">
+    <div class="modal-content">
+        <h2 id="day-detail-title">日別詳細</h2>
+        <div class="day-detail-total" id="day-detail-total"></div>
+        <div class="day-detail-list" id="day-detail-list"></div>
+        <button class="btn" onclick="closeDayDetailModal()" style="background:#95a5a6;">閉じる</button>
+    </div>
+</div>
+
+<script>
+    // ==========================================================
+    // デモ版：GitHub/Cloudflare Workerの代わりに、
+    // ブラウザのLocalStorageだけでデータを読み書きする
+    // ==========================================================
+    const STORAGE_KEY = 'milkDemoRecords';
+
+    let lastRecordTime = null;
+    let lastRecordAmount = null;
+    let chartMode = 'session';
+
+    const sessionPalette = ['#a8d8ea', '#ffb3ba', '#ffe4a3', '#b5e7c8', '#d4b3e0', '#ffcda3', '#a3e0d0', '#e0b3d4'];
+    const timePalette = ['#b3bce0', '#ffb3ba', '#ffdba8', '#d9b8e0'];
+    const timeLabels = ['0:00〜', '6:00〜', '12:00〜', '18:00〜'];
+    let allRecords = [];
+    let recordTimeManuallyChanged = false;
+    let lastChartDayData = [];
+
+    window.onload = function() {
+        seedSampleDataIfNeeded(); // ← デモ用：初回だけサンプルデータを仕込む
+        initAmountSelector();
+        resetFormTime();
+        fetchInitialData();
+        loadHistoryData();
+
+        document.getElementById('record-time').addEventListener('input', () => {
+            recordTimeManuallyChanged = true;
+        });
+
+        setInterval(updateElapsedTime, 1000);
+
+        setInterval(() => {
+            if (!recordTimeManuallyChanged) {
+                resetFormTime();
+            }
+        }, 1000);
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                fetchInitialData();
+                updateElapsedTime();
+                if (!recordTimeManuallyChanged) {
+                    resetFormTime();
+                }
+                if (document.getElementById('page-history').classList.contains('active')) {
+                    loadHistoryData();
+                }
+            }
+        });
+    };
+
+    // JST(日本時間)基準の日付・時刻文字列を作る
+    function formatJST(date, type) {
+        const parts = new Intl.DateTimeFormat('ja-JP', {
+            timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hour12: false
+        }).formatToParts(date);
+        const o = {};
+        parts.forEach(p => o[p.type] = p.value);
+        return type === 'date' ? `${o.year}/${o.month}/${o.day}` : `${o.hour}:${o.minute}`;
+    }
+
+    function buildRecord(data) {
+        const d = new Date(data.timestamp);
+        return {
+            id: data.timestamp,
+            date: formatJST(d, 'date'),
+            time: formatJST(d, 'time'),
+            timestamp: data.timestamp,
+            amount: Number(data.amount),
+            memo: data.memo || ''
+        };
+    }
+
+    // ← デモ用：初回アクセス時だけ、直近3日分・それっぽいサンプル記録を仕込む
+    function seedSampleDataIfNeeded() {
+        if (localStorage.getItem(STORAGE_KEY) !== null) return; // 既にデータがあれば何もしない
+
+        const sampleMemos = ['', '', '', '少し残した', '', 'よく飲んだ', ''];
+        const records = [];
+        const now = Date.now();
+
+        // 直近3日分、間隔は2〜3.5時間でランダムにばらつかせる(1日あたり8〜9回程度になる)
+        // 「今日」は現在時刻の少し手前(1.5時間前)を最後の授乳にして、タイマー表示が自然に見えるようにする
+        const hoursAgoList = [];
+        let hoursAgo = 1.5;
+        const maxHoursAgo = 3 * 24; // 直近3日分まで生成
+        while (hoursAgo <= maxHoursAgo) {
+            hoursAgoList.push(hoursAgo);
+            const interval = 2 + Math.random() * 1.5; // 2.0〜3.5時間のランダムな間隔
+            hoursAgo += interval;
+        }
+
+        hoursAgoList.forEach((h, i) => {
+            const t = new Date(now - h * 3600000);
+            const amount = [80, 100, 100, 120, 90, 110, 150][i % 7];
+            const memo = sampleMemos[i % sampleMemos.length];
+            records.push(buildRecord({ timestamp: t.toISOString(), amount, memo }));
+        });
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    }
+
+    function initAmountSelector() {
+        const recordSelect = document.getElementById('record-amount');
+        const modalSelect = document.getElementById('edit-amount');
+        for (let ml = 20; ml <= 240; ml += 10) {
+            const opt1 = document.createElement('option');
+            opt1.value = ml;
+            opt1.innerText = ml + ' ml';
+            if (ml === 100) opt1.selected = true;
+            recordSelect.appendChild(opt1);
+
+            const opt2 = document.createElement('option');
+            opt2.value = ml;
+            opt2.innerText = ml + ' ml';
+            modalSelect.appendChild(opt2);
+        }
+    }
+
+    function resetFormTime() {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('record-time').value = now.toISOString().slice(0, 16);
+    }
+
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (tabName==='record'&&i===0)||(tabName==='history'&&i===1)));
+        document.getElementById('page-record').classList.toggle('active', tabName === 'record');
+        document.getElementById('page-history').classList.toggle('active', tabName === 'history');
+
+        if (tabName === 'history') {
+            loadHistoryData();
+        } else if (tabName === 'record') {
+            fetchInitialData();
+        }
+    }
+
+    function updateElapsedTime() {
+        const elapsedEl = document.getElementById('elapsed-time');
+        if (!lastRecordTime) {
+            elapsedEl.innerText = '--時間--分';
+            elapsedEl.style.color = '';
+            return;
+        }
+        const diffMs = new Date() - new Date(lastRecordTime);
+        if (diffMs < 0) {
+            elapsedEl.innerText = '0分';
+            elapsedEl.style.color = '';
+            return;
+        }
+        const diffHrs = Math.floor(diffMs / 3600000);
+        const diffMins = Math.floor((diffMs % 3600000) / 60000);
+        elapsedEl.innerText = `${diffHrs}時間${diffMins}分`;
+
+        if (diffMs >= 3 * 3600000) {
+            elapsedEl.style.color = '#e74c3c';
+        } else if (diffMs >= 2 * 3600000) {
+            elapsedEl.style.color = '#f39c12';
+        } else {
+            elapsedEl.style.color = '';
+        }
+    }
+
+    // 読み込み：LocalStorageから取得し、新しい順に並べ替えて返す
+    async function fetchRecordsFromGitHub() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const records = raw ? JSON.parse(raw) : [];
+        return records.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    }
+
+    // 書き込み：LocalStorageの内容を更新する
+    async function callWorkerPost(action, data) {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        let records = raw ? JSON.parse(raw) : [];
+
+        if (action === 'addRecord') {
+            records.push(buildRecord(data));
+        } else if (action === 'saveRecord') {
+            const idx = records.findIndex(r => r.id === data.id);
+            const updated = buildRecord(data);
+            if (idx !== -1) records[idx] = updated; else records.push(updated);
+        } else if (action === 'deleteRecord') {
+            const idx = records.findIndex(r => r.id === data.id);
+            if (idx !== -1) records.splice(idx, 1);
+        }
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+        return { success: true };
+    }
+
+    async function fetchInitialData() {
+        try {
+            const data = await fetchRecordsFromGitHub();
+            allRecords = data;
+            if (data.length > 0) {
+                lastRecordTime = data[0].timestamp;
+                lastRecordAmount = data[0].amount;
+                document.getElementById('last-amount').innerText = `${lastRecordAmount}ml`;
+                updateElapsedTime();
+            } else {
+                lastRecordAmount = null;
+                document.getElementById('last-amount').innerText = '-';
+                document.getElementById('elapsed-time').innerText = 'データなし';
+            }
+        } catch (err) {
+            alert('データ取得エラー（初期化時）: ' + err.message);
+        }
+    }
+
+    async function submitRecord() {
+        const timeVal = document.getElementById('record-time').value;
+        const memoVal = document.getElementById('record-memo').value;
+        const amountVal = document.getElementById('record-amount').value;
+        if (!timeVal) return alert('日時を入力してください');
+
+        const record = {
+            timestamp: new Date(timeVal).toISOString(),
+            amount: parseInt(amountVal),
+            memo: memoVal
+        };
+
+        const submitBtn = document.querySelector('#page-record .btn');
+        submitBtn.disabled = true;
+        submitBtn.innerText = '登録中...';
+
+        try {
+            await callWorkerPost('addRecord', record);
+
+            lastRecordTime = record.timestamp;
+            lastRecordAmount = record.amount;
+            document.getElementById('last-amount').innerText = `${lastRecordAmount}ml`;
+            updateElapsedTime();
+            document.getElementById('record-memo').value = '';
+            recordTimeManuallyChanged = false;
+            resetFormTime();
+            alert('登録しました！');
+
+            fetchInitialData();
+        } catch (err) {
+            alert('登録に失敗しました。お手数ですがもう一度お試しください。（' + err.message + '）');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'この内容で登録';
+        }
+    }
+
+    async function loadHistoryData() {
+        try {
+            const data = await fetchRecordsFromGitHub();
+            allRecords = data;
+            renderHistory();
+        } catch (err) {
+            alert('データ取得エラー（履歴読み込み時）: ' + err.message);
+        }
+    }
+
+    function renderHistory() {
+        const filterEl = document.getElementById('period-filter');
+        if (!filterEl) return;
+
+        const days = parseInt(filterEl.value);
+        const container = document.getElementById('history-container');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+
+        const filtered = allRecords.filter(r => new Date(r.timestamp) >= cutoffDate);
+
+        calculateStats(filtered);
+        renderWeeklyChart();
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<div class="loading">期間内のデータがありません</div>';
+            return;
+        }
+
+        filtered.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `
+                <div class="history-info">
+                    <span class="history-time">${item.time}</span>
+                    <span class="history-date">${item.date}${item.memo ? ' 💬' + item.memo : ''}</span>
+                </div>
+                <div style="display:flex; align-items:center;">
+                    <span class="history-amount">${item.amount}ml</span>
+                    <div class="history-actions">
+                        <button onclick="openEditModal('${item.id}')">✏️</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function calculateStats(records) {
+        if (records.length === 0) {
+            document.getElementById('stat-avg-amount').innerText = '- ml';
+            document.getElementById('stat-avg-interval').innerText = '-';
+            return;
+        }
+
+        const dateMap = {};
+        records.forEach(r => {
+            dateMap[r.date] = (dateMap[r.date] || 0) + parseInt(r.amount);
+        });
+        const totalDays = Object.keys(dateMap).length;
+        const totalAmount = Object.values(dateMap).reduce((a,b)=>a+b, 0);
+        document.getElementById('stat-avg-amount').innerText = `${totalDays > 0 ? Math.round(totalAmount / totalDays) : 0} ml`;
+
+        const sorted = [...records].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+        let totalDiffMs = 0;
+        let count = 0;
+        for (let i = 1; i < sorted.length; i++) {
+            const diff = new Date(sorted[i].timestamp) - new Date(sorted[i-1].timestamp);
+            if (diff > 0 && diff < 24 * 3600000) {
+                totalDiffMs += diff;
+                count++;
+            }
+        }
+        if (count > 0) {
+            const avgMs = totalDiffMs / count;
+            const avgHrs = Math.floor(avgMs / 3600000);
+            const avgMins = Math.round((avgMs % 3600000) / 60000);
+            document.getElementById('stat-avg-interval').innerText = `${avgHrs}時間${avgMins}分`;
+        } else {
+            document.getElementById('stat-avg-interval').innerText = '-';
+        }
+    }
+
+    function jstDateStr(date) {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).formatToParts(date);
+        const o = {};
+        parts.forEach(p => o[p.type] = p.value);
+        return `${o.year}/${o.month}/${o.day}`;
+    }
+
+    function renderWeeklyChart() {
+        const container = document.getElementById('weekly-chart');
+        const legendContainer = document.getElementById('weekly-chart-legend');
+        if (!container) return;
+
+        const days = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(Date.now() - i * 86400000);
+            days.push(d);
+        }
+
+        const byDay = {};
+        allRecords.forEach(r => {
+            if (!byDay[r.date]) byDay[r.date] = [];
+            byDay[r.date].push(r);
+        });
+        Object.values(byDay).forEach(arr => arr.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)));
+
+        const dayData = days.map(d => {
+            const key = jstDateStr(d);
+            const records = byDay[key] || [];
+            const total = records.reduce((sum, r) => sum + Number(r.amount), 0);
+            return { dateObj: d, key, records, total };
+        });
+
+        lastChartDayData = dayData;
+
+        const maxTotal = Math.max(...dayData.map(d => d.total), 100);
+
+        const width = 340, height = 210;
+        const marginTop = 20, marginBottom = 34, marginLeft = 10, marginRight = 10;
+        const chartHeight = height - marginTop - marginBottom;
+        const barAreaWidth = (width - marginLeft - marginRight) / 7;
+        const barWidth = barAreaWidth * 0.55;
+
+        let svg = `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" style="width:100%; height:auto;">`;
+
+        dayData.forEach((d, i) => {
+            const x = marginLeft + i * barAreaWidth + (barAreaWidth - barWidth) / 2;
+            let yCursor = marginTop + chartHeight;
+
+            d.records.forEach((r, sessionIndex) => {
+                const segHeight = (Number(r.amount) / maxTotal) * chartHeight;
+                yCursor -= segHeight;
+                const color = getColorForRecord(r, sessionIndex);
+                svg += `<rect x="${x}" y="${yCursor}" width="${barWidth}" height="${segHeight}" fill="${color}" rx="2">
+                            <title>${r.time} ${r.amount}ml</title>
+                        </rect>`;
+            });
+
+            if (d.total > 0) {
+                const topY = marginTop + chartHeight - (d.total / maxTotal) * chartHeight;
+                svg += `<text x="${x + barWidth / 2}" y="${topY - 4}" font-size="10" text-anchor="middle" fill="#2c3e50">${d.total}</text>`;
+            }
+
+            const md = `${d.dateObj.getMonth() + 1}/${d.dateObj.getDate()}`;
+            const wd = new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', weekday: 'short' }).format(d.dateObj);
+            svg += `<text x="${x + barWidth / 2}" y="${height - marginBottom + 14}" font-size="10" text-anchor="middle" fill="#7f8c8d">${md}(${wd})</text>`;
+
+            const tapX = marginLeft + i * barAreaWidth;
+            svg += `<rect x="${tapX}" y="${marginTop}" width="${barAreaWidth}" height="${chartHeight}" fill="transparent" style="cursor:pointer;" onclick="openDayDetailModal(${i})"></rect>`;
+        });
+
+        svg += `</svg>`;
+        container.innerHTML = svg;
+
+        if (legendContainer) {
+            let legendHtml = '';
+            if (chartMode === 'timeofday') {
+                for (let i = 0; i < 4; i++) {
+                    legendHtml += `<span class="legend-item"><span class="legend-swatch" style="background:${timePalette[i]}"></span>${timeLabels[i]}</span>`;
+                }
+            } else {
+                const maxSessions = Math.max(...dayData.map(d => d.records.length), 1);
+                for (let i = 0; i < maxSessions; i++) {
+                    legendHtml += `<span class="legend-item"><span class="legend-swatch" style="background:${sessionPalette[i % sessionPalette.length]}"></span>${i + 1}</span>`;
+                }
+            }
+            legendContainer.innerHTML = legendHtml;
+        }
+    }
+
+    function buildSortedRecordsAsc() {
+        return [...allRecords].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    }
+
+    function getIntervalTextFor(record, sortedAsc) {
+        const idx = sortedAsc.findIndex(r => r.id === record.id);
+        if (idx <= 0) return null;
+        const diffMs = new Date(sortedAsc[idx].timestamp) - new Date(sortedAsc[idx - 1].timestamp);
+        if (diffMs <= 0) return null;
+        const hrs = Math.floor(diffMs / 3600000);
+        const mins = Math.floor((diffMs % 3600000) / 60000);
+        return `${hrs}時間${mins}分`;
+    }
+
+    function openDayDetailModal(dayIndex) {
+        const d = lastChartDayData[dayIndex];
+        if (!d) return;
+
+        const md = `${d.dateObj.getMonth() + 1}/${d.dateObj.getDate()}`;
+        const wd = new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', weekday: 'short' }).format(d.dateObj);
+        document.getElementById('day-detail-title').innerText = `${md}(${wd})の記録`;
+
+        const listContainer = document.getElementById('day-detail-list');
+        const totalContainer = document.getElementById('day-detail-total');
+
+        if (d.records.length === 0) {
+            totalContainer.innerText = '';
+            listContainer.innerHTML = '<div class="day-detail-empty">この日の記録はありません</div>';
+            document.getElementById('day-detail-modal').style.display = 'flex';
+            return;
+        }
+
+        totalContainer.innerText = `合計 ${d.total}ml（${d.records.length}回）`;
+
+        const sortedAsc = buildSortedRecordsAsc();
+
+        listContainer.innerHTML = '';
+        d.records.forEach(r => {
+            const intervalText = getIntervalTextFor(r, sortedAsc);
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `
+                <div class="history-info">
+                    <span class="history-time">${r.time}${intervalText ? ` <span style="font-size:0.75rem; font-weight:normal; color:#7f8c8d;">(前回から${intervalText})</span>` : ''}</span>
+                    <span class="history-date">${r.memo ? '💬' + r.memo : ''}</span>
+                </div>
+                <span class="history-amount">${r.amount}ml</span>
+            `;
+            listContainer.appendChild(div);
+        });
+
+        document.getElementById('day-detail-modal').style.display = 'flex';
+    }
+
+    function closeDayDetailModal() {
+        document.getElementById('day-detail-modal').style.display = 'none';
+    }
+
+    function openEditModal(id) {
+        const item = allRecords.find(r => r.id === id);
+        if (!item) return;
+        document.getElementById('modal-title').innerText = "記録の編集";
+        document.getElementById('edit-id').value = item.id;
+        document.getElementById('edit-amount').value = item.amount;
+        document.getElementById('edit-memo').value = item.memo || '';
+        document.getElementById('delete-btn').style.display = 'block';
+
+        const t = new Date(item.timestamp);
+        t.setMinutes(t.getMinutes() - t.getTimezoneOffset());
+        document.getElementById('edit-time').value = t.toISOString().slice(0, 16);
+        document.getElementById('edit-modal').style.display = 'flex';
+    }
+
+    function openAddModal() {
+        document.getElementById('modal-title').innerText = "過去の記録を追加";
+        document.getElementById('edit-id').value = '';
+        document.getElementById('edit-amount').value = 100;
+        document.getElementById('edit-memo').value = '';
+        document.getElementById('delete-btn').style.display = 'none';
+
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('edit-time').value = now.toISOString().slice(0, 16);
+        document.getElementById('edit-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('edit-modal').style.display = 'none';
+    }
+
+    async function saveEdit() {
+        const id = document.getElementById('edit-id').value;
+        const timeVal = document.getElementById('edit-time').value;
+        const amountVal = document.getElementById('edit-amount').value;
+        const memoVal = document.getElementById('edit-memo').value;
+
+        if (!timeVal) return alert('日時を入力してください');
+
+        const record = {
+            id: id,
+            timestamp: new Date(timeVal).toISOString(),
+            amount: parseInt(amountVal),
+            memo: memoVal
+        };
+
+        try {
+            await callWorkerPost('saveRecord', record);
+            closeModal();
+            loadHistoryData();
+            fetchInitialData();
+        } catch (err) {
+            alert('保存エラー: ' + err.message);
+        }
+    }
+
+    async function deleteRecord() {
+        const id = document.getElementById('edit-id').value;
+        if (!id || !confirm('この記録を削除してもよろしいですか？')) return;
+
+        try {
+            await callWorkerPost('deleteRecord', { id });
+            closeModal();
+            loadHistoryData();
+            fetchInitialData();
+        } catch (err) {
+            alert('削除エラー: ' + err.message);
+        }
+    }
+
+    function setChartMode(mode) {
+        chartMode = mode;
+        document.getElementById('mode-btn-session').classList.toggle('active', mode === 'session');
+        document.getElementById('mode-btn-time').classList.toggle('active', mode === 'timeofday');
+        renderWeeklyChart();
+    }
+
+    function getJSTHour(timestamp) {
+        const d = new Date(timestamp);
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Tokyo', hour: 'numeric', hour12: false }).formatToParts(d);
+        let hour = parseInt(parts.find(p => p.type === 'hour').value, 10);
+        if (hour === 24) hour = 0;
+        return hour;
+    }
+
+    function getColorForRecord(record, sessionIndex) {
+        if (chartMode === 'timeofday') {
+            const hour = getJSTHour(record.timestamp);
+            const bucket = hour < 6 ? 0 : hour < 12 ? 1 : hour < 18 ? 2 : 3;
+            return timePalette[bucket];
+        }
+        return sessionPalette[sessionIndex % sessionPalette.length];
+    }
+</script>
+</body>
+</html>
